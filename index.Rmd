@@ -75,7 +75,7 @@ selectInput(
   inputId = "Delito",
   label = "Tipo de delito",
   choices = lista_delito,
-  selected = "Todas"
+  selected = "Todos"
 )
 
 # Víctima
@@ -91,7 +91,7 @@ selectInput(
   inputId = "Genero",
   label = "Género",
   choices = lista_genero,
-  selected = "Todas"
+  selected = "Todos"
 )
 
 # Edad
@@ -192,6 +192,7 @@ filtrarDelitos <- reactive ({
         selected = "Todos"
     )
   }}
+  
   return(delitos_filtrados)
 })
 ```
@@ -352,15 +353,13 @@ ggplotly(grafico_x_edad) %>% config(locale = 'es')
 ```
 
 
-### Mapa
-
 ```{r mapa_delitos_x_distritos, message=FALSE, warning=FALSE}
 distritos <- 
   distritos%>% 
   mutate(distrito_normalizado = tolower(stri_trans_general(distrito, id = "Latin-ASCII")))
 ```
 
-```{r, correccion_nombres, message=FALSE, warning=FALSE}
+```{r correccion_nombres, message=FALSE, warning=FALSE}
 delitos <- 
   delitos %>%
   mutate(Distrito = if_else(Distrito == "CAIRO", "EL CAIRO", Distrito)) %>%
@@ -396,7 +395,7 @@ delitos <-
   mutate(distrito_normalizado = tolower(stri_trans_general(Distrito, id = "Latin-ASCII")))
 ```
 
-```{r revision, message=FALSE, warning=FALSE}
+```{r mapa-revision, message=FALSE, warning=FALSE}
 delitos <- 
   delitos %>% 
   left_join(
@@ -407,6 +406,19 @@ delitos <-
     by = "distrito_normalizado",
     copy = FALSE,
     keep = FALSE)
+```
+
+```{r mapa, message=FALSE, warning=FALSE}
+delitos_x_distrito <-
+  delitos %>%
+  count(distrito_normalizado, name = "delitos")
+
+distritos_delitos <-
+  distritos %>%
+  left_join(delitos_x_distrito,
+            by = "distrito_normalizado",
+            copy = FALSE,
+            keep = FALSE)
 ```
 
 ```{r union_distritos_a_delitos, message=FALSE, warning=FALSE}
@@ -423,7 +435,9 @@ delitos <-
     copy = FALSE,
     keep = FALSE
   )
+```
 
+```{r, message=FALSE, warning=FALSE}
 delitos_x_distrito <-
   delitos %>%
   count(codigo_dta, name = "delitos")
@@ -437,6 +451,8 @@ distritos_delitos <-
   mutate(delitos = ifelse(is.na(delitos), 0, delitos))
 ```
 
+### Mapa
+
 ```{r paleta, message=FALSE, warning=FALSE}
 colores_distritos_delitos <-
   colorNumeric(palette = "Reds",
@@ -448,41 +464,47 @@ colores_distritos_delitos <-
 renderLeaflet({
   delitos <- filtrarDelitos()
   
-  leaflet() %>%
-     setView(
-       lng = -84.19452,
-       lat = 9.572735,
-       zoom = 7) %>%
-    addTiles(group = "OpenStreetMap") %>%
-    addPolygons(
-      data = distritos_delitos,
-      fillColor = ~ colores_distritos_delitos(distritos_delitos$delitos),
-      fillOpacity = 0.8,
-      color = "black",
-      stroke = TRUE,
-      weight = 1.0,
-      popup = paste(
-         paste("<strong>Cantón:</strong>",distritos_delitos$canton),
-         paste("<strong>Distrito:</strong>",distritos_delitos$distrito),
-         paste("<strong>Delitos:</strong>",distritos_delitos$delitos),
-         sep = "<br>"),
-      group = "Delitos en distritos") %>%
-    addLayersControl(
-      baseGroups = c("OpenStreetMap"),
-      overlayGroups = c("Delitos en distritos")) %>%
-    addLegend(
-      position = "bottomlef",
-      pal = colores_distritos_delitos,
-      values = distritos_delitos$delitos,
-      group = "Delitos en distritos",
-      title = "Cantidad de delitos")})
+  
+delitos_x_distrito <-
+  delitos %>%
+  count(codigo_dta, name = "delitos")
+
+distritos_delitos <-
+  distritos %>%
+  left_join(delitos_x_distrito,
+            by = "codigo_dta",
+            copy = FALSE,
+            keep = FALSE) %>%
+  mutate(delitos = ifelse(is.na(delitos), 0, delitos))  
+
+  
+leaflet() %>%
+  setView(
+    lng = -84.19452,
+    lat = 9.572735,
+    zoom = 7) %>%
+  addTiles(group = "OpenStreetMap") %>%
+  addPolygons(
+    data = distritos_delitos,
+    fillColor = ~ colores_distritos_delitos(distritos_delitos$delitos),
+    fillOpacity = 0.8,
+    color = "black",
+    stroke = TRUE,
+    weight = 1.0,
+    popup = paste(
+      paste("<strong>Provincia:</strong>",distritos_delitos$provincia),
+      paste("<strong>Cantón:</strong>",distritos_delitos$canton),
+      paste("<strong>Distrito:</strong>",distritos_delitos$distrito),
+      paste("<strong>Delitos:</strong>",distritos_delitos$delitos),
+      sep = "<br>"),
+    group = "Distritos") %>%
+  addLayersControl(
+    baseGroups = c("OpenStreetMap"),
+    overlayGroups = c("Distritos")) %>%
+  addLegend(
+    position = "bottomlef",
+    pal = colores_distritos_delitos,
+    values = distritos_delitos$delitos,
+    group = "Delitos",
+    title = "Cantidad de delitos")})
 ```
-
-
-
-
-
-
-
-
-
